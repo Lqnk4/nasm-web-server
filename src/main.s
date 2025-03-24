@@ -1,16 +1,17 @@
 %include "src/constants.s"
 
 section .data
-    struc sockaddr
-        .sa_family resw 1
-        .sa_port resw 1
-        .sa_data resd 1
+    struc sockaddr_in
+        .sin_family resw 1  ; AF_INET
+        .sin_port resw 1    ; Port number
+        .sin_addr resd 1    ; IPv4 address
     endstruc
 
-    socket_address istruc sockaddr
-        at sockaddr.sa_family, dw AF_INET
-        at sockaddr.sa_port, dw 0
-        at sockaddr.sa_data, dd 0
+    socket dq 0
+    socket_address istruc sockaddr_in
+        at sockaddr_in.sin_family, dw AF_INET
+        at sockaddr_in.sin_port, dw 8080
+        at sockaddr_in.sin_addr, dd 0
     iend
     socket_address_len equ $ - socket_address
 
@@ -19,7 +20,6 @@ section .data
     init_textLen equ $ - init_text
 
 section .bss
-    socket resq 0
 
 section .text
 
@@ -42,12 +42,22 @@ create_socket:
     mov [socket], rax ;; store socket fd
 
 bind_socket:
+    ;; htonl(sin_port)
+    mov bx, [socket_address + sockaddr_in.sin_port]
+    xchg bl, bh
+    mov [socket_address + sockaddr_in.sin_port], bx
+
     mov rax, SYS_BIND
     mov rdi, [socket]
     mov rsi, [socket_address]
     mov rdx, socket_address_len
     syscall
 
+listen:
+    mov rax, SYS_LISTEN
+    mov rdi, [socket]
+    mov rsi, 8
+    syscall
 
 close_socket:
     mov rax, SYS_CLOSE
