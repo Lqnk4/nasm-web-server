@@ -7,8 +7,7 @@ default: $(OBJECTS) bin/main
 
 debug: NASM_FLAGS := $(NASM_FLAGS) -g
 
-.PHONY: debug
-debug: default
+debug: clean default
 
 bin/main: $(OBJECTS)
 	ld $^ $(LD_FLAGS) -o $@
