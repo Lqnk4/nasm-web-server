@@ -11,7 +11,7 @@ section .data
     socket_address istruc sockaddr_in
         at sockaddr_in.sin_family, dw AF_INET
         at sockaddr_in.sin_port, dw 8080
-        at sockaddr_in.sin_addr, dd 0
+        at sockaddr_in.sin_addr, db 127,0,0,1
     iend
     socket_padding dq 0
     socket_address_len equ $ - socket_address
@@ -22,8 +22,7 @@ section .data
     reqbuff times bufflen db 0
     retbuff times bufflen db 0
 
-    index db "src/html/index.html"
-    index_fd dq 0
+    index db "src/html/index.html",0
 
     init_text   db "Starting up nasm-web-server, ...",10
     init_textLen equ $ - init_text
@@ -105,10 +104,17 @@ accept_loop:
     mov rdx, bufflen
     syscall
 
+.close_client:
+    mov rax, SYS_CLOSE
+    mov rdi, r13
+    syscall
+
 .close_html:
     mov rax, SYS_CLOSE
     mov rdi, r14
     syscall
+
+    jmp accept_loop
 
 
 close_socket:
