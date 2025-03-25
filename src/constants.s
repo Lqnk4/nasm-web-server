@@ -10,6 +10,7 @@
     SYS_ACCEPT equ 43 ; int socket, struct sockaddr *restrict address, socklen_t * restrict address_len
     SYS_BIND equ 49 ; int socket, const struct sockaddr *address, socklen_t address_len
     SYS_LISTEN equ 50 ; int socket, int backlog
+    SYS_SETSOCKOPT equ 54 ; int socket, int level, int option_name, const void *option_value, socklen_t option_len
     SYS_EXIT equ 60 ; int code
 
     ;; SYS_OPEN

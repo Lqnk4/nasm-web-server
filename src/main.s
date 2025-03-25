@@ -5,6 +5,7 @@ section .data
         .sin_family resw 1  ; AF_INET
         .sin_port resw 1    ; Port number
         .sin_addr resd 1    ; IPv4 address
+        .sin_padding  resq 1
     endstruc
 
     socket dq 0
@@ -12,8 +13,8 @@ section .data
         at sockaddr_in.sin_family, dw AF_INET
         at sockaddr_in.sin_port, dw 8080
         at sockaddr_in.sin_addr, db 127,0,0,1
+        at sockaddr_in.sin_padding, dq 0
     iend
-    socket_padding dq 0
     socket_address_len equ $ - socket_address
 
     client dq 0
@@ -24,7 +25,7 @@ section .data
 
     index db "src/html/index.html",0
 
-    init_text   db "Starting up nasm-web-server, ...",10
+    init_text   db "Starting up nasm-web-server, ...",10,0
     init_textLen equ $ - init_text
 
 section .bss
@@ -47,8 +48,12 @@ create_socket:
     mov rsi, SOCK_STREAM
     mov rdx, PROTO_TCP
     syscall
+    cmp rax, -1
+    je close_server
     mov [socket], rax   ;; cache socket fd
     mov r12, rax        ;; leave fd in r12 as well
+
+
 
 bind_socket:
     ;; htons(sin_port)
@@ -59,8 +64,10 @@ bind_socket:
     mov rax, SYS_BIND
     mov rdi, r12
     mov rsi, socket_address
-    mov rdx, 16
+    mov rdx, socket_address_len
     syscall
+    cmp rax, 0
+    jne close_server
 
 socket_listen:
     mov rax, SYS_LISTEN
@@ -73,6 +80,8 @@ accept_loop:
     mov rdi, r12
     mov rsi, 0
     syscall
+    cmp rax, -1
+    je close_server
     mov [client], rax ;; cache client fd
     mov r13, rax
 
@@ -89,6 +98,8 @@ accept_loop:
     mov rdi, index
     mov rsi, O_RDONLY
     syscall
+    cmp rax, -1
+    je close_server
     mov r14, rax        ;; index.html fd
 
     mov rax, SYS_READ
@@ -103,6 +114,8 @@ accept_loop:
     mov rsi, retbuff
     mov rdx, bufflen
     syscall
+    cmp rax, -1
+    je close_server
 
 .close_client:
     mov rax, SYS_CLOSE
@@ -117,13 +130,14 @@ accept_loop:
     jmp accept_loop
 
 
-close_socket:
+close_server:
     mov rax, SYS_CLOSE
     mov rdi, [socket]   ;; use cached fd for redundency
     syscall
+    xor rax, rax    ;; zero rax for successful exit
 
-exit:
+_exit:
+    mov rdi, rax
     mov rax, SYS_EXIT
-    mov rdi, 0
     syscall
 
