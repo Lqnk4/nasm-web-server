@@ -21,5 +21,9 @@
     SOCK_STREAM equ 1
     PROTO_TCP equ 6
 
+    ;; SYS_SETSOCKOPT
+    SOL_SOCKET equ 1
+    SO_REUSEADDR equ 2
+
 
 %endif

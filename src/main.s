@@ -9,6 +9,7 @@ section .data
     endstruc
 
     socket dq 0
+    one_constant dw 1
     socket_address istruc sockaddr_in
         at sockaddr_in.sin_family, dw AF_INET
         at sockaddr_in.sin_port, dw 8080
@@ -34,8 +35,6 @@ section .text
 
 global _start
 _start:
-
-init_message:
     mov rax, SYS_WRITE
     mov rdi, 1
     mov rsi, init_text
@@ -53,10 +52,18 @@ create_socket:
     mov [socket], rax   ;; cache socket fd
     mov r12, rax        ;; leave fd in r12 as well
 
+    mov rax, SYS_SETSOCKOPT    
+    mov rdi, r12
+    mov rsi, SOL_SOCKET
+    mov rdx, SO_REUSEADDR
+    mov r10, one_constant   ;; requires a pointer
+    mov r8, dword 32 ;; min option length
+    syscall
+    cmp rax, 0
+    jne close_server
 
 
-bind_socket:
-    ;; htons(sin_port)
+    ;; htons(socket_address.sin_port)
     mov bx, [socket_address + sockaddr_in.sin_port]
     xchg bl, bh
     mov [socket_address + sockaddr_in.sin_port], bx
@@ -85,11 +92,14 @@ accept_loop:
     mov [client], rax ;; cache client fd
     mov r13, rax
 
+.read_header:
     mov rax, SYS_READ
     mov rdi, r13
     mov rsi, reqbuff
     mov rdx, bufflen
     syscall
+    cmp rax, 0
+    jle close_server
 
     ;; doesn't parse the request for now
 
@@ -107,8 +117,10 @@ accept_loop:
     mov rsi, retbuff
     mov rdx, bufflen
     syscall
+    cmp rax, 0
+    jle close_server
 
-.write_to_socket:
+.write_socket:
     mov rdx, rax        ;; write only the numer of bytes read from index
     mov rax, SYS_WRITE
     mov rdi, r13
@@ -121,11 +133,15 @@ accept_loop:
     mov rax, SYS_CLOSE
     mov rdi, r13
     syscall
+    cmp rax, 0
+    jne close_server
 
 .close_html:
     mov rax, SYS_CLOSE
     mov rdi, r14
     syscall
+    cmp rax, 0
+    jne close_server
 
     jmp accept_loop
 
@@ -134,6 +150,8 @@ close_server:
     mov rax, SYS_CLOSE
     mov rdi, [socket]   ;; use cached fd for redundency
     syscall
+    cmp rax, 0
+    jne _exit
     xor rax, rax    ;; zero rax for successful exit
 
 _exit:
