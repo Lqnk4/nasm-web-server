@@ -48,8 +48,8 @@ create_socket:
     mov rsi, SOCK_STREAM
     mov rdx, PROTO_TCP
     syscall
-    cmp rax, -1
-    je close_server
+    cmp rax, 0
+    jle close_server
     mov [socket], rax   ;; cache socket fd
     mov r12, rax        ;; leave fd in r12 as well
 
@@ -80,8 +80,8 @@ accept_loop:
     mov rdi, r12
     mov rsi, 0
     syscall
-    cmp rax, -1
-    je close_server
+    cmp rax, 0
+    jle close_server
     mov [client], rax ;; cache client fd
     mov r13, rax
 
@@ -98,8 +98,8 @@ accept_loop:
     mov rdi, index
     mov rsi, O_RDONLY
     syscall
-    cmp rax, -1
-    je close_server
+    cmp rax, 0
+    jle close_server
     mov r14, rax        ;; index.html fd
 
     mov rax, SYS_READ
@@ -109,13 +109,13 @@ accept_loop:
     syscall
 
 .write_to_socket:
+    mov rdx, rax        ;; write only the numer of bytes read from index
     mov rax, SYS_WRITE
     mov rdi, r13
     mov rsi, retbuff
-    mov rdx, bufflen
     syscall
-    cmp rax, -1
-    je close_server
+    cmp rax, 0
+    jle close_server
 
 .close_client:
     mov rax, SYS_CLOSE
