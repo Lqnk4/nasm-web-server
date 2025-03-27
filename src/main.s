@@ -26,8 +26,11 @@ section .data
 
     index db "src/html/index.html",0
 
-    init_text   db "Starting up nasm-web-server, ...",10,0
-    init_textLen equ $ - init_text
+    msg_init   db "Starting up nasm-web-server, ...",10
+    msg_init_len equ $ - msg_init
+
+    msg_bind_error db "ERROR: Failed to bind address to socket",10
+    msg_bind_errorLen equ $ - msg_bind_error
 
 section .bss
 
@@ -37,8 +40,8 @@ global _start
 _start:
     mov rax, SYS_WRITE
     mov rdi, 1
-    mov rsi, init_text
-    mov rdx, init_textLen
+    mov rsi, msg_init
+    mov rdx, msg_init_len
     syscall
 
 create_socket:
@@ -48,7 +51,7 @@ create_socket:
     mov rdx, PROTO_TCP
     syscall
     cmp rax, 0
-    jle close_server
+    jle _exit
     mov [socket], rax   ;; cache socket fd
     mov r12, rax        ;; leave fd in r12 as well
 
@@ -60,7 +63,7 @@ create_socket:
     mov r8, dword 32 ;; min option length
     syscall
     cmp rax, 0
-    jne close_server
+    jne _exit
 
 
     ;; htons(socket_address.sin_port)
@@ -74,7 +77,7 @@ create_socket:
     mov rdx, socket_address_len
     syscall
     cmp rax, 0
-    jne close_server
+    jne exit_bind_error
 
 socket_listen:
     mov rax, SYS_LISTEN
@@ -88,7 +91,7 @@ accept_loop:
     mov rsi, 0
     syscall
     cmp rax, 0
-    jle close_server
+    jle _exit
     mov [client], rax ;; cache client fd
     mov r13, rax
 
@@ -99,7 +102,7 @@ accept_loop:
     mov rdx, bufflen
     syscall
     cmp rax, 0
-    jle close_server
+    jle _exit
 
     ;; doesn't parse the request for now
 
@@ -109,7 +112,7 @@ accept_loop:
     mov rsi, O_RDONLY
     syscall
     cmp rax, 0
-    jle close_server
+    jle _exit
     mov r14, rax        ;; index.html fd
 
     mov rax, SYS_READ
@@ -118,7 +121,7 @@ accept_loop:
     mov rdx, bufflen
     syscall
     cmp rax, 0
-    jle close_server
+    jle _exit
 
 .write_socket:
     mov rdx, rax        ;; write only the numer of bytes read from index
@@ -127,26 +130,35 @@ accept_loop:
     mov rsi, retbuff
     syscall
     cmp rax, 0
-    jle close_server
+    jle _exit
 
 .close_client:
     mov rax, SYS_CLOSE
     mov rdi, r13
     syscall
     cmp rax, 0
-    jne close_server
+    jne _exit
 
 .close_html:
     mov rax, SYS_CLOSE
     mov rdi, r14
     syscall
     cmp rax, 0
-    jne close_server
+    jne _exit
 
     jmp accept_loop
 
 
-close_server:
+exit_bind_error:
+    mov rax, SYS_WRITE
+    mov rdi, 1
+    mov rsi, msg_bind_error
+    mov rdx, msg_init_len
+    syscall
+    jmp _exit
+
+
+_exit:
     mov rax, SYS_CLOSE
     mov rdi, [socket]   ;; use cached fd for redundency
     syscall
@@ -154,7 +166,6 @@ close_server:
     jne _exit
     xor rax, rax    ;; zero rax for successful exit
 
-_exit:
     mov rdi, rax
     mov rax, SYS_EXIT
     syscall
